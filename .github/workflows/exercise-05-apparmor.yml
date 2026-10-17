@@ -62,4 +62,8 @@ jobs:
 
       - name: Show AppArmor denials from the kernel log
         if: always()
-        run: sudo dmesg | grep -i 'apparmor="DENIED"' | tail -n 20 || true
+        run: |
+          echo "--- dmesg ---"
+          sudo dmesg | grep -i 'apparmor="DENIED"' | tail -n 20 || true
+          echo "--- journal ---"
+          sudo journalctl -k --no-pager | grep -i 'apparmor="DENIED"' | tail -n 20 || true

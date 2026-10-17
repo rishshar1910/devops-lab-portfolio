@@ -5,9 +5,15 @@ import urllib.request
 import docker
 
 # Extra checks (not part of the original exercise): confirm the app still works
-# under the profile, and compare against a container with no profile.
+# under the profile, that programs started from INSIDE the confined container are
+# blocked from executing /bin and /usr/bin binaries, and compare against a
+# container with no profile.
 client = docker.from_env()
 failures = []
+
+SPAWN_BASH = ("import subprocess; "
+              "subprocess.run(['/bin/bash', '-c', 'echo shell started'], check=True)")
+SPAWN_ID = "import subprocess; subprocess.run(['/usr/bin/id'], check=True)"
 
 
 def run(container, cmd):
@@ -24,7 +30,7 @@ def attempt(label, container, cmd, expect_blocked):
     verdict = "OK" if blocked == expect_blocked else "UNEXPECTED"
     if verdict == "UNEXPECTED":
         failures.append(label)
-    print(f"[{verdict}] {label}: Exit Code {code}, Output: {output[:150]!r}")
+    print(f"[{verdict}] {label}: Exit Code {code}, Output: {output[-200:]!r}")
 
 
 confined = client.containers.run(
@@ -57,6 +63,10 @@ try:
             ["python", "-c", "print(open('/etc/passwd').read())"], True)
     attempt("python writes /var/apparmor-test", confined,
             ["python", "-c", "open('/var/apparmor-test', 'w').write('x')"], True)
+    attempt("python starts /bin/bash from inside the container", confined,
+            ["python", "-c", SPAWN_BASH], True)
+    attempt("python starts /usr/bin/id from inside the container", confined,
+            ["python", "-c", SPAWN_ID], True)
     attempt("python reads /app/app.py (allowed)", confined,
             ["python", "-c", "print(open('/app/app.py').read()[:40])"], False)
 
@@ -65,6 +75,8 @@ try:
     attempt("execute /bin/bash", control, ["/bin/bash", "-c", "echo shell started"], False)
     attempt("python reads /etc/passwd", control,
             ["python", "-c", "print(open('/etc/passwd').read())"], False)
+    attempt("python starts /bin/bash from inside the container", control,
+            ["python", "-c", SPAWN_BASH], False)
 finally:
     for c in (confined, control):
         c.stop()
