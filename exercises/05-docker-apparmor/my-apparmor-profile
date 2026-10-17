@@ -1,0 +1,38 @@
+#include <tunables/global>
+
+profile my-apparmor-profile flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+
+  # Networking: allow the Flask app to listen on TCP port 5000
+  network inet,
+  network inet6,
+  network unix,
+
+  # Capabilities: Docker already drops most; explicitly deny sys_admin
+  capability,
+  deny capability sys_admin,
+
+  # File access is allowed by default, then sensitive paths are denied.
+  # (Deny rules always override allow rules in AppArmor.)
+  file,
+  umount,
+
+  # Deny access to sensitive system files
+  deny /etc/passwd r,
+  deny /etc/shadow r,
+  deny /etc/group r,
+  deny /etc/gshadow r,
+  deny /etc/** w,
+  deny /var/** w,
+
+  # Deny execution of binaries in the standard system directories
+  deny /bin/** x,
+  deny /sbin/** x,
+  deny /usr/bin/** x,
+  deny /usr/sbin/** x,
+
+  # Signals and ptrace between the confined container and Docker (as in docker-default)
+  signal (receive) peer=unconfined,
+  signal (send,receive) peer=my-apparmor-profile,
+  ptrace (trace,read,tracedby,readby) peer=my-apparmor-profile,
+}

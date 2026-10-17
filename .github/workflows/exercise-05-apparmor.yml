@@ -1,0 +1,65 @@
+name: Exercise 05 - Docker AppArmor
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'exercises/05-docker-apparmor/**'
+      - '.github/workflows/exercise-05-apparmor.yml'
+
+jobs:
+  apparmor:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: exercises/05-docker-apparmor
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Prerequisites - install AppArmor utilities
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apparmor apparmor-utils
+
+      - name: Check AppArmor is enabled
+        run: |
+          echo "Kernel: $(uname -r)"
+          echo "AppArmor enabled: $(cat /sys/module/apparmor/parameters/enabled)"
+          sudo aa-status | grep -E "module is loaded|profiles are loaded" || true
+
+      - name: Task 2 - Build the Docker image
+        run: docker build -t flask-apparmor .
+
+      - name: Task 3 - Load the AppArmor profile
+        run: |
+          sudo cp my-apparmor-profile /etc/apparmor.d/my-apparmor-profile
+          sudo apparmor_parser -r /etc/apparmor.d/my-apparmor-profile
+          sudo aa-status | grep my-apparmor-profile
+
+      - name: Task 3c - Run the container with the profile from the CLI
+        run: |
+          docker run -d --name flask-cli --security-opt="apparmor=my-apparmor-profile" -p 5000:5000 flask-apparmor
+          sleep 3
+          echo "Profile reported by Docker: $(docker inspect --format '{{.AppArmorProfile}}' flask-cli)"
+          curl -s http://localhost:5000/
+          echo
+          docker rm -f flask-cli
+
+      - name: Task 4 - Apply the profile with the Docker SDK
+        run: |
+          pip install docker
+          python apply_apparmor.py
+
+      - name: Task 5 - Test restricted actions
+        run: python test_restricted_actions.py
+
+      - name: Extra checks - app works under the profile, control without a profile
+        run: python extra_checks.py
+
+      - name: Show AppArmor denials from the kernel log
+        if: always()
+        run: sudo dmesg | grep -i 'apparmor="DENIED"' | tail -n 20 || true
