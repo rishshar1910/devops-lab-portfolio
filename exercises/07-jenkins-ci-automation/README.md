@@ -56,15 +56,18 @@ Get the initial admin password:
 
 Open `http://localhost:8080`, paste the password into the **Unlock Jenkins** screen, choose **Install suggested plugins**, create the first admin user, and finish with **Start using Jenkins**. The Jenkins dashboard (landing page) loaded successfully.
 
+![Jenkins landing page](screenshots/jenkins-landing-page.png)
+
 ## Differences from the exercise instructions
 
 - Ran on Windows 11 with Docker Desktop (PowerShell) instead of Linux.
 - The password was read with a single `docker exec jenkins cat ...` instead of opening an interactive shell with `docker exec -it ... bash` and running `cat` there; it reads the same file.
 - The exercise's sample output shows a different container ID and password; those values are generated per installation.
-- No screenshots are included; the three installation screens (unlock, getting started, landing page) were completed in the browser.
+- Only the landing-page screenshot is included; the other two installation screens (unlock, getting started) were completed in the browser but not captured.
 
 ## Cleanup / notes
 
 The container is left running because the next Jenkins exercises build on this installation. To remove it:
 
     docker rm -f jenkins
+
